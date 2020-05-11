@@ -1,6 +1,7 @@
 # Prerequesites
 
 Python (<= 3.7)
+
 [Spark 2.4.5](https://www.apache.org/dyn/closer.lua/spark/spark-2.4.5/spark-2.4.5-bin-hadoop2.7.tgz)
 
 # Installation

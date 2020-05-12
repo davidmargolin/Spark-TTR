@@ -24,9 +24,11 @@ pip3 install -r requirements.txt
 4. Set env vars
 ```bash
 export SPARK_HOST=<spark host url>
+export PYSPARK_DRIVER_PYTHON=<python path>
+export PYSPARK_PYTHON=<python path>
 ```
 
 # Running the CLI
 ```bash
-python3 cli.py term-term-relevance <file-path>
+python3 cli.py <file-path>
 ```

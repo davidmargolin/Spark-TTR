@@ -7,22 +7,16 @@ load_dotenv()
 
 sc = SparkContext(master=os.getenv("SPARK_HOST"), appName="Term Term Relevance")
 
-@click.group()
-def main():
-    """
-    CLI for Project 2
-    """
-    pass
 
-@main.command()
-@click.argument('file')
+@click.command()
+@click.argument('file', type=click.Path(exists=True))
 def term_term_relevance(file):
     """
     Outputs a list of term-term pairs sorted by their similarity descending
     """
 
     # comments use sample.txt input
-    
+
     # "docId1 w1 w2 w3 w1" 
     # "docId2 w1 w4 w3"
     lines=sc.textFile(file)
@@ -78,4 +72,4 @@ def term_term_relevance(file):
     tfidf.saveAsTextFile("tfidf_matrix")
 
 if __name__ == "__main__":
-    main()
+    term_term_relevance()

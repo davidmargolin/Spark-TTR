@@ -1,4 +1,5 @@
 import os
+import re
 import click
 import math
 from pyspark import SparkContext
@@ -10,8 +11,8 @@ sc = SparkContext(master=os.getenv("SPARK_HOST"), appName="Term Term Relevance")
 
 @click.command()
 @click.argument('file', type=click.Path(exists=True))
-#@click.argument('queryTerm', nargs=1)
-def term_term_relevance(file):
+@click.argument('query')
+def term_term_relevance(file, query):
     """
     Outputs a list of term-term pairs sorted by their similarity descending
     """
@@ -24,8 +25,8 @@ def term_term_relevance(file):
 
     # 2
     cnt = lines.count()
-    click.echo("Loaded {} documents".format(cnt))
-    #print(lines.take(2))
+    click.echo("Loaded {} documents. Generating matrix.".format(cnt))
+
     # (docId1, [w1, w2, w3, w1]) 
     # (docId2, [w1, w4, w3])
     documentData=lines.map(lambda x: x.split()).map(lambda x:(x[0],x[1:]))
@@ -41,7 +42,8 @@ def term_term_relevance(file):
         documentId = document[0]
         words = document[1]
         wordCount = len(words)
-        return list(map(lambda word: (word, {documentId: 1/wordCount}), words))
+        filteredWords = list(filter(lambda x: (re.match(r"gene_.*_gene", x) != None), words))
+        return list(map(lambda word: (word, {documentId: 1/wordCount}), filteredWords))
     matrix=documentData.flatMap(term_document_count)
 
     # (w1, {"docId1": 2/4, "docId2": 1/3}) 
@@ -69,30 +71,19 @@ def term_term_relevance(file):
             stripes[doc] *= multiplier
         return (word, stripes)
     tfidf = tf.map(multiply_idf)
-    tfidf.saveAsTextFile("tfidf_matrix")
+
+
+    click.echo("Matrix completed. Generating TTR for {}...".format(query))
 
     # Sub question 2 starts here:
-    queryTerm = input("Please enter a query term:")
 
-    # (w1, {"docId1": 2/4*log(2/2), "docId2": 1/3*log(2/2)})    #if queryTerm == "w1"
-    # helper function: return the query term row from a tfidf matrix
-    def return_term(input):
-        word = input[0]
-        stripes = input[1]
-        if word == queryTerm:
-            return stripes
-    tfidf_filtered = tfidf.filter(return_term)
-    
-
-    # {"docId1": 2/4*log(2/2), "docId2": 1/3*log(2/2)}      
-    def return_stripes(input):
-        word = input[0]
-        stripes = input[1]
-        return stripes
-    target_stripes = tfidf_filtered.map(return_stripes)
-    target_stripes_list = target_stripes.take(1)
-    target_stripes_dict = target_stripes_list[0]
-
+    # {"docId1": 2/4*log(2/2), "docId2": 1/3*log(2/2)}  #if queryTerm == "w1"
+    # return the query term row from a tfidf matrix
+    try:
+        target_stripes_dict = tfidf.filter(lambda x:x[0]==query).values().first()
+    except:
+        click.echo("Error: term does not exist in document")
+        return
 
     # sqrt(docId1^2 + docId2^2)
     # helper function:
@@ -100,34 +91,27 @@ def term_term_relevance(file):
     def return_sqrt(dict):
         res = 0
         for item in dict:
-            sq = dict[item] * dict[item] 
-            res += sq
+            res += math.pow(dict[item], 2) 
         return math.sqrt(res)
     lsqrt = return_sqrt(target_stripes_dict)
 
-    
+    nonTermDocs = tfidf.filter(lambda x:x[0]!=query)
+
     # calculate the cosine similiarity
     def calculate_similarity(input):
         word = input[0]
         stripes = input[1]
         sumOfProduct = 0
-        stripesDict = {}
         for key in stripes:
-            if key in target_stripes_dict.keys():
-                product = stripes[key] * target_stripes_dict[key]
-                sumOfProduct += product
-                stripesDict[key] = stripes[key]
-            else:
-                sumOfProduct += 0
-                stripesDict[key] = stripes[key]
-        rsqrt = return_sqrt(stripesDict)
+            if key in target_stripes_dict:
+                sumOfProduct += stripes[key] * target_stripes_dict[key]
+        rsqrt = return_sqrt(stripes)
         similarity = sumOfProduct / (lsqrt * rsqrt)
-        return (word, queryTerm,similarity)
-    similarity_matrix = tfidf.map(calculate_similarity)
-    
-    # formatting the output in descending order
-    similarity_matrix_desc = similarity_matrix.sortBy(lambda x: x[2],False)
-    similarity_matrix_desc.saveAsTextFile("similarity_matrix_desc")
+        return (similarity, word)
+    similarity_matrix = nonTermDocs.map(calculate_similarity)
+
+    similarity_matrix_desc = similarity_matrix.sortByKey(ascending=False).values().take(5)
+    [click.echo(str(index+1) + ". " + word) for (index, word) in enumerate(similarity_matrix_desc)]
 
 
 if __name__ == "__main__":

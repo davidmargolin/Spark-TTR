@@ -27,7 +27,18 @@ export SPARK_HOST=<spark host url>
 export PYSPARK_DRIVER_PYTHON=<python path>
 export PYSPARK_PYTHON=<python path>
 ```
-
+5. Start Master/Slave Server
+```bash
+start-master.sh
+```
+To view the Spark Web UI, open a web browser and enter the localhost IP address on port 8080
+```bash
+http://127.0.0.1:8080/
+```
+Start a slave server
+```bash
+start-slave.sh <spark://master:port>
+```
 # Running the CLI
 ```bash
 python3 cli.py <file-path>

@@ -10,6 +10,7 @@ sc = SparkContext(master=os.getenv("SPARK_HOST"), appName="Term Term Relevance")
 
 @click.command()
 @click.argument('file', type=click.Path(exists=True))
+#@click.argument('queryTerm', nargs=1)
 def term_term_relevance(file):
     """
     Outputs a list of term-term pairs sorted by their similarity descending
@@ -24,7 +25,7 @@ def term_term_relevance(file):
     # 2
     cnt = lines.count()
     click.echo("Loaded {} documents".format(cnt))
-
+    #print(lines.take(2))
     # (docId1, [w1, w2, w3, w1]) 
     # (docId2, [w1, w4, w3])
     documentData=lines.map(lambda x: x.split()).map(lambda x:(x[0],x[1:]))
@@ -68,8 +69,66 @@ def term_term_relevance(file):
             stripes[doc] *= multiplier
         return (word, stripes)
     tfidf = tf.map(multiply_idf)
-
     tfidf.saveAsTextFile("tfidf_matrix")
+
+    # Sub question 2 starts here:
+    queryTerm = input("Please enter a query term:")
+
+    # (w1, {"docId1": 2/4*log(2/2), "docId2": 1/3*log(2/2)})    #if queryTerm == "w1"
+    # helper function: return the query term row from a tfidf matrix
+    def return_term(input):
+        word = input[0]
+        stripes = input[1]
+        if word == queryTerm:
+            return stripes
+    tfidf_filtered = tfidf.filter(return_term)
+    
+
+    # {"docId1": 2/4*log(2/2), "docId2": 1/3*log(2/2)}      
+    def return_stripes(input):
+        word = input[0]
+        stripes = input[1]
+        return stripes
+    target_stripes = tfidf_filtered.map(return_stripes)
+    target_stripes_list = target_stripes.take(1)
+    target_stripes_dict = target_stripes_list[0]
+
+
+    # sqrt(docId1^2 + docId2^2)
+    # helper function:
+    # input a dict obj, and return the sqrt of sum of all values' square
+    def return_sqrt(dict):
+        res = 0
+        for item in dict:
+            sq = dict[item] * dict[item] 
+            res += sq
+        return math.sqrt(res)
+    lsqrt = return_sqrt(target_stripes_dict)
+
+    
+    # calculate the cosine similiarity
+    def calculate_similarity(input):
+        word = input[0]
+        stripes = input[1]
+        sumOfProduct = 0
+        stripesDict = {}
+        for key in stripes:
+            if key in target_stripes_dict.keys():
+                product = stripes[key] * target_stripes_dict[key]
+                sumOfProduct += product
+                stripesDict[key] = stripes[key]
+            else:
+                sumOfProduct += 0
+                stripesDict[key] = stripes[key]
+        rsqrt = return_sqrt(stripesDict)
+        similarity = sumOfProduct / (lsqrt * rsqrt)
+        return (word, queryTerm,similarity)
+    similarity_matrix = tfidf.map(calculate_similarity)
+    
+    # formatting the output in descending order
+    similarity_matrix_desc = similarity_matrix.sortBy(lambda x: x[2],False)
+    similarity_matrix_desc.saveAsTextFile("similarity_matrix_desc")
+
 
 if __name__ == "__main__":
     term_term_relevance()

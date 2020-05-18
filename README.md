@@ -23,13 +23,7 @@ source env/bin/activate
 pip3 install -r requirements.txt
 ```
 
-4. Set env vars
-```bash
-export SPARK_HOST=<spark host url>
-export PYSPARK_DRIVER_PYTHON=<python path>
-export PYSPARK_PYTHON=<python path>
-```
-5. Start Master/Slave Server
+4. Start Master/Slave Server
 ```bash
 start-master.sh
 ```
@@ -41,6 +35,14 @@ Start a slave server
 ```bash
 start-slave.sh <spark://master:port>
 ```
+
+5. Set env vars
+```bash
+export SPARK_HOST=<spark://master:port>
+export PYSPARK_DRIVER_PYTHON=<python path>
+export PYSPARK_PYTHON=<python path>
+```
+
 # Running the CLI
 ```bash
 python3 cli.py <file-path> <term>

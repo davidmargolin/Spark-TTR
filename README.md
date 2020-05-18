@@ -43,5 +43,5 @@ start-slave.sh <spark://master:port>
 ```
 # Running the CLI
 ```bash
-python3 cli.py <file-path>
+python3 cli.py <file-path> <term>
 ```

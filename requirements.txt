@@ -1,4 +1,4 @@
 click==7.1.2
 py4j==0.10.7
-pyspark==2.4.5
+pyspark==3.2.2
 python-dotenv==0.13.0
